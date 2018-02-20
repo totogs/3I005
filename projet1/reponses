@@ -1,0 +1,8 @@
+Q2.1
+
+On associe le label +1 à l'email(c'est un spam) si la probabilité que la email soit un spam sachant sa description x est plus grande que la probabilité qu'il ne soit pas un spam sachant sa desciption x, sinon on associe le label -1 à l'email(ce n'est pas un spam).
+On a 
+<=>P(Y=+1|X=x)>P(Y=-1|X=x)
+<=>P(X=x|Y=+1)P(Y=+1)/P(X=x)>P(X=x|Y=-1)P(Y=-1)/P(X=x)
+
+On
