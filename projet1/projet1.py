@@ -3,6 +3,8 @@ import re
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+from numpy import linalg as LA
+
 
 def read_file(fname):
     """ Lit un fichier compose d'une liste de emails, chacun separe par au moins 2 lignes vides."""
@@ -83,7 +85,7 @@ def apprend_modele(spam, non_spam):
 	#et p(X=x) = nbr email de longueur x / nbr email
 	#et p(Y=+1 | X=x) = nbr email spam de taille x / nbr longueur de taille x
 	
-	#renvoyer la distribution des spam selon leur longueur x
+	#renvoyer la distribution des spam selon leur longueur xfrom numpy import linalg as LA
 	
 	#calculs:
 	#suppression des doublons dans les listes
@@ -229,30 +231,34 @@ def apprend_modeleSem(spam,nospam):
 	dictionnaire= []#dictionnaire mot, proba spam
 	print(len(liste_mots))
 	for mot in liste_mots:
-		if(re.match(reg,mot)is None and len(mot)<27):
+		if(re.match(reg,mot)is None and len(mot)<27 and len(mot)>3):
 			
 			dictionnaire.append((mot,distributionSem(spam, nospam, mot)))
 	
 	return dictionnaire
+
 	
 
 def distributionSem(spam,nospam, xi):
     
 	
-	nb_xi_spam=1#Nombre de fois ou le mot xi apparait dans les spams
-	nb_xi_tot=1#Nombre de fois ou le mot xi apparait dans les mails
+	nb_xi_spam=0#Nombre de fois ou le mot xi apparait dans les spams
+	nb_xi_tot=0#Nombre de fois ou le mot xi apparait dans les mails
 
 
 	for mail in spam:
 		for mot in mail.split():
-			if (mot.lower == xi.lower):
+
+			if (mot.lower() == xi.lower()):
 				nb_xi_spam += 1
 				nb_xi_tot += 1
 
 	for mail in nospam:
 		for mot in mail.split():
-			if (mot.lower == xi.lower):
+
+			if (mot.lower() == xi.lower()):
 				nb_xi_tot += 1
+	
 
 	px = float(nb_xi_tot) / (nb_xi_tot + nb_xi_spam) #p(X=xi)
 	pyx = float(nb_xi_spam) / nb_xi_tot #p(Y=+1 | X=xi)
@@ -279,6 +285,7 @@ def predict_emailSem(email,modele):
 	else:
 		return -1
 
+liste_x=[]
 
 def accuracySem(emails, modele):
 
@@ -304,3 +311,30 @@ def proba_errSem(emails, modele):
 modele_sem=apprend_modeleSem(l1_s, l1_ns)
 
 print(proba_errSem(emails,modele_sem))
+
+
+
+def distance(xi,xj):
+
+	return -np.dot(xi,xj)/(LA.norm(xi)*LA.norm(xj))
+
+def Pij(listeX, i, j):
+	
+	somme=0.0
+	for k in range(len(listeX)):
+		if(k!=i):
+			somme+=math.exp(-distance(listeX[i],listeX[k])/(2*np.var(listeX[i])))
+			
+	math.exp(-distance(listeX[i],listeX[j])/(2*np.var(listeX[i])))/somme
+	
+
+def Qij(listeX, i, j):
+	
+	somme=0.0
+	for k in range(len(listeX)):
+		if(k!=i):
+			somme+=math.exp(-distance(listeX[i],listeX[k]))
+			
+	math.exp(-distance(listeX[i],listeX[j]))/somme
+	
+
