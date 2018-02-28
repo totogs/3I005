@@ -91,10 +91,11 @@ def apprend_modele(spam, non_spam):
 	#suppression des doublons dans les listes
 	liste_mails = liste_longueur(list(set(spam+non_spam)))
 	#tableau (longueur, proba)
-	dict_lp = []#dictionnaire longueur, proba spam
+	dict_lp = []#dictionnaire longueur, proba spam, et proba d'une longueur x'
 
 	for x in liste_mails:
-		dict_lp.append((x,distribution(spam, non_spam, x)))
+		pxy, px = distribution(spam, non_spam, x)
+		dict_lp.append((x, pxy, px))
 
 	return dict_lp
 
@@ -111,14 +112,16 @@ def distribution(spam, non_spam, x):
 			nb_x_tot += 1
 	for lm in liste_longueur(non_spam):
 		if (lm == x):
+			nb_x_nospam +=1
 			nb_x_tot += 1
 
-	px = float(nb_x_tot) / (nb_x_tot + nb_x_spam) #p(X=x)
+	px = float(nb_x_tot) / (len(spam)+len(non_spam)) #p(X=x)
 	pyx = float(nb_x_spam) / nb_x_tot #p(Y=+1 | X=x)
+	
 
 	pxy = pyx * px / 0.5 #p(X=x | Y=+1)
-
-	return pxy
+	
+	return pxy, px
 
 def predict_email(emails, modele):
 	#renvoie la liste des labels pour l'ensemble des emails en fonction du modele passe en parametre
@@ -130,9 +133,10 @@ def predict_email(emails, modele):
 		proba=0.5
 		for m in modele:
 			if(longueur_body(e)>=m[0] and longueur_body(e)<m[1]):
-				proba=m[2]
+				proba_pxy=m[2]
+				proba_px=m[3]
 
-		if (proba > 0.5):
+		if (proba_pxy > proba_px):
 			labels.append(+1)
 		else:
 			labels.append(-1)
@@ -172,7 +176,8 @@ def regroup(modele, bins):
 	modele=sorted(modele,key=lambda model: model[0], reverse=True)
 
 	new_modele=[]
-	proba=1.0
+	proba_px=1.0
+	proba_pxy=1.0
 	l_max = modele[0][0]
 	step=int(l_max/bins)
 
@@ -183,11 +188,12 @@ def regroup(modele, bins):
 			for m in modele:
 
 				if(m[0]>=i and m[0]<i+step):
-					proba*=m[1]
+					proba_px*=m[2]
+					proba_pxy*=m[1]
 					cpt+=1
 
 			if(cpt>0):
-				new_modele.append((i,i+step,proba))
+				new_modele.append((i,i+step,proba_pxy,proba_px))
 
 			else:
 				new_modele.append((i,i+step,0.5))
@@ -220,89 +226,170 @@ print(proba_err(emails,modele_bine))
 """
 
 
+#Exercice 3: Classification a partir du contenu d'un email 
+
+"""
+import nltk
+nltk.download()
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem.wordnet import WordNetLemmatizer
+"""
+
 def apprend_modeleSem(spam,nospam):
+	
 
-	mails = ' '.join(list(set(spam+nospam)))
-	liste_mots=list(set(mails.split()))
+	liste_mots = filtrer(' '.join(list(set(spam+nospam))))
+	liste_spam = (' '.join(spam)).split()
+	liste_nospam = (' '.join(nospam)).split()
+	"""
+	liste_mots = filtrer_nltk(' '.join(list(set(spam+nospam))))
 
-	reg=r"[0-9_@\\\/]+"
+	"""
+	liste_mots = compte_mot_email(liste_mots, set(spam+nospam))
+
 
 	#tableau (longueur, proba)
 	dictionnaire= []#dictionnaire mot, proba spam
 	print(len(liste_mots))
+	print(len(liste_spam))
+	print(len(liste_nospam))
+
+
 	for mot in liste_mots:
-		if(re.match(reg,mot)is None and len(mot)<27 and len(mot)>3):
-
-			dictionnaire.append((mot,distributionSem(spam, nospam, mot)))
-
+		p = distributionSem(liste_spam, liste_nospam, mot)
+		if(p!=-1):
+			dictionnaire.append((mot,p))
+	
+	print(dictionnaire)
 	return dictionnaire
 
+	
+
+def filtrer(mails):
+
+	
+	liste_mots=list(set(mails.split()))
+	reg=r"[0-9_@\\\/]+"
+
+	new_list=[]
+
+	for mot in liste_mots:
+
+		if(re.match(reg,mot) is None and len(mot)<27 and len(mot)>3):
+			new_list.append(mot)
+
+
+	return new_list
+
+
+"""
+def filtrer_nltk(mails):
+
+	stop_words = set(stopwords.words('english'))
+	stop_words.update(['.', ',', '"', "'", '?', '!', ':', ';', '(', ')', '[', ']', '{', '}'])
+	words = list(set(word_tokenize(mails)))
+	words = nltk.pos_tag(words)
+
+	reg=r"[0-9_@\\\/]+"
+
+	new_words = []
+
+	tags = ["SYM","LS","CD", "CC", "PRP", "PRP$", "TO","FW" ,"EX", ]
+
+	for word in words:
+		
+		if ((word[0].lower() not in stop_words) and (word[1] not in tags) and len(word[0])>3 and len(word[0])<27 and re.match(reg,word[0]) is None):
+			new_words.append(WordNetLemmatizer().lemmatize(word[0],'v'))
+	 
+
+	return new_words;
+"""
+
+def compte_mot_email(liste_mots, mails):
+
+	freq = []
+
+	for mot in liste_mots:
+		cpt=0
+		for mail in mails:
+
+			if(mail.find(mot)!=-1):
+				cpt+=1
+		
+		if(cpt > 3):
+			freq.append(mot)
+
+	return freq
 
 
 def distributionSem(spam,nospam, xi):
-
-
+    
+	
 	nb_xi_spam=0#Nombre de fois ou le mot xi apparait dans les spams
 	nb_xi_tot=0#Nombre de fois ou le mot xi apparait dans les mails
 
 
-	for mail in spam:
-		for mot in mail.split():
+	for mot in spam:
 
-			if (mot.lower() == xi.lower()):
-				nb_xi_spam += 1
-				nb_xi_tot += 1
+		if (mot.lower() == xi.lower()):
+			nb_xi_spam += 1
+			nb_xi_tot += 1
 
-	for mail in nospam:
-		for mot in mail.split():
+	for mot in nospam:
 
-			if (mot.lower() == xi.lower()):
-				nb_xi_tot += 1
-
+		if (mot.lower() == xi.lower()):
+			nb_xi_tot += 1
+	
+	if(nb_xi_tot==0):
+		
+		return -1
 
 	px = float(nb_xi_tot) / (nb_xi_tot + nb_xi_spam) #p(X=xi)
 	pyx = float(nb_xi_spam) / nb_xi_tot #p(Y=+1 | X=xi)
 
-	pxy = pyx * px / 0.5 #p(X=xi | Y=+1)
+	pxy = pyx * px  #p(X=xi | Y=+1)
 
 	return pxy
-
+	
 
 def predict_emailSem(email,modele):
 
-
+	
 	X=[]
 	proba=0.5
 
 	for mot in modele:
-
+		
 		if(email.find(mot[0])!=-1):
+		
 			proba*=mot[1]
 
-
+	
 	if(proba>0.5):
 		return +1
 	else:
 		return -1
 
-liste_x=[]
 
+
+#Renvoie le pourcentage de mails bien classes par rapport a des donnees d'entrainement
 def accuracySem(emails, modele):
 
 	labels=[]
-
+	
 	for e in emails:
 		labels.append(predict_emailSem(e[0],modele))
 	cpt=0.0
-
+	
 	for i in range(len(labels)):
 		if(labels[i]*emails[i][1]>=0):
-			cpt+=1.0
+			cpt+=1
+	
+	return float(cpt)/len(labels)
+	
 
-	return cpt/len(labels)
-
-
-
+#Renvoie la probabilite de l'erreur c'est a dire 1 moins la probabilite de de mails bien classes
 def proba_errSem(emails, modele):
 
     return (1.0-accuracySem(emails,modele))
@@ -314,6 +401,8 @@ print(proba_errSem(emails,modele_sem))
 
 
 
+
+#Partie 2: Visualisation
 def distance(xi,xj):
 
 	return -np.dot(xi,xj)/(LA.norm(xi)*LA.norm(xj))
