@@ -94,8 +94,9 @@ def apprend_modele(spam, non_spam):
 	dict_lp = []#dictionnaire longueur, proba spam, et proba d'une longueur x'
 
 	for x in liste_mails:
-		pxy, px = distribution(spam, non_spam, x)
-		dict_lp.append((x, pxy, px))
+		pxy_s, pxy_ns = distribution(spam, non_spam, x)
+
+		dict_lp.append((x, pxy_s, pxy_ns))
 
 	return dict_lp
 
@@ -103,8 +104,9 @@ def apprend_modele(spam, non_spam):
 
 def distribution(spam, non_spam, x):
 	#renvoie p(X=x | Y=+1) pour une longueur x donnee
-	nb_x_spam = 0 #nbre de spam de longueur x
-	nb_x_tot = 0 #nbre total de mail de longueur x
+	nb_x_spam = 0.001 #nbre de spam de longueur x
+	nb_x_nospam = 0.001 #nbre de non spam de longueur x
+	nb_x_tot = 0.001 #nbre total de mail de longueur x
 
 	for lm in liste_longueur(spam):
 		if (lm == x):
@@ -116,12 +118,16 @@ def distribution(spam, non_spam, x):
 			nb_x_tot += 1
 
 	px = float(nb_x_tot) / (len(spam)+len(non_spam)) #p(X=x)
-	pyx = float(nb_x_spam) / nb_x_tot #p(Y=+1 | X=x)
+	pyx_s = float(nb_x_spam) / nb_x_tot #p(Y=+1 | X=x)
+	pyx_ns = float(nb_x_nospam) / nb_x_tot #p(Y=-1 | X=x)
 	
 
-	pxy = pyx * px / 0.5 #p(X=x | Y=+1)
+	pxy_s = pyx_s * px / 0.5 #p(X=x | Y=+1)
+	pxy_ns = pyx_ns * px / 0.5 #p(X=x | Y=-1)
 	
-	return pxy, px
+
+				
+	return -math.log(pxy_s), -math.log(pxy_ns)
 
 def predict_email(emails, modele):
 	#renvoie la liste des labels pour l'ensemble des emails en fonction du modele passe en parametre
@@ -129,17 +135,20 @@ def predict_email(emails, modele):
 	labels = [] #labels[i] contient le label de l'email emails[i]
 	#emails contient la longueur des emails
 	for e in emails:
-
+		#pr chaque longueur si p(X=x | Y=+1) > p(X=x | Y=-1) -> c'est un spam
 		proba=0.5
 		for m in modele:
+			#m : [bonrne_inf, borne_sup, p(X=x | Y=+1), p(X=x | Y=-1)]
+			#on est dans la bonne tranche?
 			if(longueur_body(e)>=m[0] and longueur_body(e)<m[1]):
-				proba_pxy=m[2]
-				proba_px=m[3]
+				pxy_s=m[2]
+				pxy_ns=m[3]
 
-		if (proba_pxy > proba_px):
-			labels.append(+1)
-		else:
-			labels.append(-1)
+
+				if (pxy_s > pxy_ns):
+					labels.append(+1)
+				else:
+					labels.append(-1)
 
 	return labels
 
@@ -172,35 +181,45 @@ def proba_err(emails,modele):
 #Renvoit la liste des probabilites d'un spam en fonction d'intervalles de longueur de mail
 def regroup(modele, bins):
 	#la longueur du plus long mail
-
+	#tri par ordre decroissant des longueurs
 	modele=sorted(modele,key=lambda model: model[0], reverse=True)
+	
 
 	new_modele=[]
-	proba_px=1.0
-	proba_pxy=1.0
+	proba_pxy_s=1.0
+	proba_pxy_ns=1.0
 	l_max = modele[0][0]
 	step=int(l_max/bins)
 
 	cpt=0;
 
 	for i in range(0, l_max,step):
-
+			#pour chaque tranche de longueurs entre i et i+step
+			#on calcul p_spam, p_nospam sur l'inrevalle
 			for m in modele:
-
+				
 				if(m[0]>=i and m[0]<i+step):
-					proba_px*=m[2]
-					proba_pxy*=m[1]
-					cpt+=1
-
+					#si la probaba est nulle on la prend pas en compte_mot_email
+					#m[1] : p(X=x | Y=+1)
+					#m[2] : p(X=x | Y=-1)
+					if m[1] == 0 or m[2] == 0:
+						continue
+					else:
+						proba_pxy_ns+=m[2]
+						proba_pxy_s+=m[1]
+						cpt+=1
+			#si au moins un elements dans l'intervalle
 			if(cpt>0):
-				new_modele.append((i,i+step,proba_pxy,proba_px))
-
+				new_modele.append((i,i+step,proba_pxy_s,proba_pxy_ns))
+			#si aucun element dans cet intervalle -> une chance sur deux
 			else:
-				new_modele.append((i,i+step,0.5))
+				new_modele.append((i,i+step,0.5, 0.5))
 
 			proba=1.0
 			cpt=0
+	
 
+	#renvoyer le modele regroupe
 	return new_modele
 
 
@@ -219,12 +238,12 @@ for l in l2_ns:
 	emails.append((l,-1))
 
 """
-modele_bine=regroup(modele,len(modele)/1000)
+modele_bine=regroup(modele,10000)
 
-
+print("Pourcentage de données mal classées ")
 print(proba_err(emails,modele_bine))
-"""
 
+"""
 
 #Exercice 3: Classification a partir du contenu d'un email 
 
@@ -291,7 +310,7 @@ def filtrer_nltk(mails):
 	words = list(set(word_tokenize(mails)))
 	words = nltk.pos_tag(words)
 
-	reg=r"[0-9_@\\\/]+"
+	reg=r"[0-9_@\\\/]+" 
 
 	new_words = []
 
@@ -395,10 +414,10 @@ def proba_errSem(emails, modele):
     return (1.0-accuracySem(emails,modele))
 
 
-modele_sem=apprend_modeleSem(l1_s, l1_ns)
-
+"""
+modele_sem = apprend_modeleSem(l1_s, l1_ns)
 print(proba_errSem(emails,modele_sem))
-
+"""
 
 
 
@@ -477,7 +496,7 @@ def dCy1(listeX, listeY, i):
     return 2*somme
 
 def dCy2(listeX, listeY, i):
-    #listeX : longueur des email i
+    #listeX : vecteurs X(x0, x1, .... xn) -> xi nombre d'apparition du mot a l'indice i du dico
     #listeY : vecteurs Yi = (yi1, yi2), representations des emails i
     #les Yi sont initialises aleatoirement pour chaque email i selon la loi N(0, 0.5)
 
@@ -494,20 +513,61 @@ def dCy2(listeX, listeY, i):
     return 2*somme
 
 def SNE(listeX):
-    #initilsation aleatoire de listeY
-    listeY = [np.random.normal(0, 0.5, size=2) for x in listeX]
-    #epsilon choisie a la main entre 10e-1 et 10e-3
-    epsilon = 0.01
-    #repeter jusqu'a convergence
-    #dans notre cas on repete l'operation n fois avec n >> 2 * len(listeX) pour etre sur d'avoir un bon resultat
-    cpt = 0
-    while(cpt < 4 * len(listeX)):
-        cpt+=1
-        #tirer un email au hasard
-        i = np.random.randint(0, high = len(listeX))
-        #mettre a jour Yi
-        y1 = listeY[i][0]
-        y2 = listeY[i][1]
+	#initilsation aleatoire de listeY
+	listeY = [np.random.normal(0, 0.5, size=2) for x in listeX]
+	#epsilon choisie a la main entre 10e-1 et 10e-3
+	epsilon = 0.01
+	#repeter jusqu'a convergence
+	#dans notre cas on repete l'operation n fois avec n >> 2 * len(listeX) pour etre sur d'avoir un bon resultat
+	cpt = 0
+	while(cpt < 4 * len(listeX)):
+		cpt+=1
+		#tirer un email au hasard
+		i = np.random.randint(0, high = len(listeX))
+		#mettre a jour Yi
+		y1 = listeY[i][0]
+		y2 = listeY[i][1]
 
-        listeY[i][0] = y1 - epsilon*dCy1(listeX, listeY, i)
-        listeY[i][1] = y2 - epsilon*dCy2(listeX, listeY, i)
+		listeY[i][0] = y1 - epsilon*dCy1(listeX, listeY, i)
+		listeY[i][1] = y2 - epsilon*dCy2(listeX, listeY, i)
+
+	return listeY
+	
+	
+
+def create_vectX(dictionnaire, email):
+	#renvoie un vecteur X avec le nombre d'apparition de chaque mot du dico
+	liste = []
+	
+	for mot in dictionnaire:
+		
+		cpt=0
+		
+		for i in email[0].split():
+		
+			if(mot[0].lower()== i.lower()):
+				
+				cpt+=1
+		
+		liste.append(cpt)
+	
+	return liste
+
+
+def create_listeX(dictionnaire, emails):
+	
+	listex = []
+	
+	for e in emails:
+	
+		listex.append(create_vectX(dictionnaire, e))
+		
+	return listex
+	
+
+print(emails[0])	
+dictionnaire = filtrer(' '.join(list(set(spam+nospam))))	
+dictionnaire = compte_mot_email(dictionnaire, set(spam+nospam))
+
+listeX = create_listeX(dictionnaire, emails)
+print(listeX)
