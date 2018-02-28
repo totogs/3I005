@@ -127,7 +127,7 @@ def distribution(spam, non_spam, x):
 	
 
 				
-	return -math.log(pxy_s), -math.log(pxy_ns)
+	return -math.log(pyx_s), -math.log(pyx_ns)
 
 def predict_email(emails, modele):
 	#renvoie la liste des labels pour l'ensemble des emails en fonction du modele passe en parametre
@@ -169,12 +169,6 @@ def accuracy(emails, modele):
 			cpt+=1.0
 
 	return cpt/len(labels)
-
-
-
-def proba_err(emails,modele):
-
-	return (1.0-accuracy(emails,modele))
 
 
 
@@ -237,13 +231,14 @@ for l in l2_s:
 for l in l2_ns:
 	emails.append((l,-1))
 
-"""
-modele_bine=regroup(modele,10000)
 
-print("Pourcentage de données mal classées ")
-print(proba_err(emails,modele_bine))
 
-"""
+modele_bine=regroup(modele,100)
+
+print("Pourcentage de données bien classées ")
+print(accuracy(emails,modele_bine))
+
+
 
 #Exercice 3: Classification a partir du contenu d'un email 
 
@@ -259,28 +254,27 @@ def apprend_modeleSem(spam,nospam):
 	
 
 	liste_mots = filtrer(' '.join(list(set(spam+nospam))))
-	liste_spam = (' '.join(spam)).split()
-	liste_nospam = (' '.join(nospam)).split()
+
 	"""
 	liste_mots = filtrer_nltk(' '.join(list(set(spam+nospam))))
 
 	"""
 	liste_mots = compte_mot_email(liste_mots, set(spam+nospam))
-
+	plt.hist(liste_mots, bins=1000)
+	plt.show()
 
 	#tableau (longueur, proba)
 	dictionnaire= []#dictionnaire mot, proba spam
 	print(len(liste_mots))
-	print(len(liste_spam))
-	print(len(liste_nospam))
+
 
 
 	for mot in liste_mots:
-		p = distributionSem(liste_spam, liste_nospam, mot)
-		if(p!=-1):
-			dictionnaire.append((mot,p))
+		p_s, p_ns = distributionSem(spam, nospam, mot)
+
+		dictionnaire.append((mot,p_s, p_ns))
 	
-	print(dictionnaire)
+
 	return dictionnaire
 
 	
@@ -328,16 +322,20 @@ def filtrer_nltk(mails):
 def compte_mot_email(liste_mots, mails):
 
 	freq = []
-
+	len(mails)
+	lm= list(set(mails.split()))
+	
 	for mot in liste_mots:
 		cpt=0
-		for mail in mails:
 
-			if(mail.find(mot)!=-1):
+		
+		for m in lm:
+
+			if(mot.lower()==m.lower()):
 				cpt+=1
 		
-		if(cpt > 3):
-			freq.append(mot)
+		print(cpt)
+		freq.append(cpt)
 
 	return freq
 
@@ -345,47 +343,61 @@ def compte_mot_email(liste_mots, mails):
 def distributionSem(spam,nospam, xi):
     
 	
-	nb_xi_spam=0#Nombre de fois ou le mot xi apparait dans les spams
-	nb_xi_tot=0#Nombre de fois ou le mot xi apparait dans les mails
+	nb_xi_spam=0.000001#Nombre de fois ou le mot xi apparait dans les spams
+	nb_xi_nospam=0.000001#Nombre de fois ou le mot xi apparait dans les spams
+	nb_xi_tot=0.000001#Nombre de fois ou le mot xi apparait dans les mails
 
 
-	for mot in spam:
+	for mail in spam:
+		mail=list(set(mail.split()))
+		
+		for mot in mail:
+		
+			if (mot.lower() == xi.lower()):
+				nb_xi_spam += 1
+				nb_xi_tot += 1
 
-		if (mot.lower() == xi.lower()):
-			nb_xi_spam += 1
-			nb_xi_tot += 1
+	for mail in nospam:
 
-	for mot in nospam:
-
-		if (mot.lower() == xi.lower()):
-			nb_xi_tot += 1
+		mail=list(set(mail.split()))
+		
+		for mot in mail:
+		
+			if (mot.lower() == xi.lower()):
+				nb_xi_nospam += 1
+				nb_xi_tot += 1
 	
 	if(nb_xi_tot==0):
 		
 		return -1
 
-	px = float(nb_xi_tot) / (nb_xi_tot + nb_xi_spam) #p(X=xi)
-	pyx = float(nb_xi_spam) / nb_xi_tot #p(Y=+1 | X=xi)
+	px = float(nb_xi_tot) / (len(spam)+len(nospam)) #p(X=xi)
+	pyx_s = float(nb_xi_spam) / nb_xi_tot #p(Y=+1 | X=xi)
+	
+	pyx_ns = float(nb_xi_nospam) / nb_xi_tot #p(Y=-1 | X=xi)
 
-	pxy = pyx * px  #p(X=xi | Y=+1)
+	pxy_s = pyx_s * px  #p(X=xi | Y=+1)
+	pxy_ns = pyx_ns * px  #p(X=xi | Y=-1)
 
-	return pxy
+	return -math.log(pyx_s), -math.log(pyx_ns)
 	
 
 def predict_emailSem(email,modele):
 
 	
-	X=[]
-	proba=0.5
+	p_s=1.0
+	p_ns=1.0
 
 	for mot in modele:
 		
 		if(email.find(mot[0])!=-1):
-		
-			proba*=mot[1]
+			
+			print(mot[0])
+			p_s+=mot[1]
+			p_ns+=mot[2]
 
 	
-	if(proba>0.5):
+	if(p_s>p_ns):
 		return +1
 	else:
 		return -1
@@ -402,22 +414,19 @@ def accuracySem(emails, modele):
 	cpt=0.0
 	
 	for i in range(len(labels)):
+		
 		if(labels[i]*emails[i][1]>=0):
 			cpt+=1
 	
 	return float(cpt)/len(labels)
 	
 
-#Renvoie la probabilite de l'erreur c'est a dire 1 moins la probabilite de de mails bien classes
-def proba_errSem(emails, modele):
-
-    return (1.0-accuracySem(emails,modele))
+	
 
 
-"""
 modele_sem = apprend_modeleSem(l1_s, l1_ns)
-print(proba_errSem(emails,modele_sem))
-"""
+print("pourcentage de données bien classées")
+print(accuracySem(emails,modele_sem))
 
 
 
@@ -564,10 +573,11 @@ def create_listeX(dictionnaire, emails):
 		
 	return listex
 	
-
+"""
 print(emails[0])	
 dictionnaire = filtrer(' '.join(list(set(spam+nospam))))	
 dictionnaire = compte_mot_email(dictionnaire, set(spam+nospam))
 
 listeX = create_listeX(dictionnaire, emails)
 print(listeX)
+"""
