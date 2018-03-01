@@ -419,8 +419,9 @@ print(accuracySem(emails,modele_sem))
 
 #Partie 2: Visualisation
 def distance(xi,xj):
-
-	return -np.dot(xi,xj)/(LA.norm(xi)*LA.norm(xj))
+	if (LA.norm(xi)*LA.norm(xj)) == 0:
+		return 1
+	return -np.dot(xi,xj) / (LA.norm(xi)*LA.norm(xj))
 
 #modelisation de la probabilite que la representation Xi soit dans le voisinage de Xj
 # plus d(Xi, Xj) est grande et plus Pij est faible
@@ -428,10 +429,11 @@ def Pij(listeX, i, j):
 
 	somme=0.0
 	for k in range(len(listeX)):
-		if(k!=i):
+		if(k!=i and (2*np.var(listeX[i]))!= 0):
 			somme+=math.exp(-distance(listeX[i],listeX[k])/(2*np.var(listeX[i])))
-
-	math.exp(-distance(listeX[i],listeX[j])/(2*np.var(listeX[i])))/somme
+	if (2*np.var(listeX[i])) == 0 or somme == 0:
+		return 1
+	return math.exp(-distance(listeX[i],listeX[j])/(2*np.var(listeX[i])))/somme
 
 #modelisation de la probabilite que la representation Yi soit dans le voisinage
 #dans l'espace de faible dimension
@@ -442,7 +444,7 @@ def Qij(listeX, i, j):
 		if(k!=i):
 			somme+=math.exp(-distance(listeX[i],listeX[k]))
 
-	math.exp(-distance(listeX[i],listeX[j]))/somme
+	return math.exp(-distance(listeX[i],listeX[j]))/somme
 
 #on veut que Qij soit la plus proche de Pij pour conserver le meme voisinage pour
 #les deux representations Xi et Yi
@@ -473,11 +475,13 @@ def C(listeX):
     summe = 0
     for i in range(len(listeX)):
         somme += KL(listeX, i)
+    return somme
 #derivees partielles
 def dCy1(listeX, listeY, i):
     #listeX : longueur des email i
     #listeY : vecteurs Yi = (yi1, yi2), representations des emails i
-    #les Yi sont initialises aleatoirement pour chaque email i selon la loi N(0, 0.5)
+    #les Yi sont initialises aleatoirement pour chaque email i selon 
+    #la loi N(0, 0.5)
 
     somme = 0
     for j in range(len(listeY)): #len(listeX) = len(listeY)
@@ -487,7 +491,6 @@ def dCy1(listeX, listeY, i):
         qji = Qij(listeX, j, i)
         yi1 = listeY[i][0]
         yj1 = listeY[j][0]
-
         somme += (yi1 - yj1)*(pij - qij + pji - qji)
     return 2*somme
 
@@ -560,11 +563,13 @@ def create_listeX(dictionnaire, emails):
 		
 	return listex
 	
-"""
-print(emails[0])	
+	
 dictionnaire = filtrer(' '.join(list(set(spam+nospam))))	
 dictionnaire = compte_mot_email(dictionnaire, set(spam+nospam))
 
 listeX = create_listeX(dictionnaire, emails)
-print(listeX)
-"""
+
+listeY = SNE(listeX)
+
+print(listeY)
+
