@@ -117,17 +117,12 @@ def distribution(spam, non_spam, x):
 			nb_x_nospam +=1
 			nb_x_tot += 1
 
-	px = float(nb_x_tot) / (len(spam)+len(non_spam)) #p(X=x)
-	pyx_s = float(nb_x_spam) / nb_x_tot #p(Y=+1 | X=x)
-	pyx_ns = float(nb_x_nospam) / nb_x_tot #p(Y=-1 | X=x)
-	
 
-	pxy_s = pyx_s * px / 0.5 #p(X=x | Y=+1)
-	pxy_ns = pyx_ns * px / 0.5 #p(X=x | Y=-1)
 	
-
+	pxy_s = float(nb_x_spam) / nb_x_tot #p(X=x | Y=+1)
+	pxy_ns =  float(nb_x_nospam) / nb_x_tot #p(X=x | Y=-1)
 				
-	return -math.log(pyx_s), -math.log(pyx_ns)
+	return math.log(pxy_s), math.log(pxy_ns)
 
 def predict_email(emails, modele):
 	#renvoie la liste des labels pour l'ensemble des emails en fonction du modele passe en parametre
@@ -260,8 +255,7 @@ def apprend_modeleSem(spam,nospam):
 
 	"""
 	liste_mots = compte_mot_email(liste_mots, set(spam+nospam))
-	plt.hist(liste_mots, bins=1000)
-	plt.show()
+
 
 	#tableau (longueur, proba)
 	dictionnaire= []#dictionnaire mot, proba spam
@@ -281,7 +275,7 @@ def apprend_modeleSem(spam,nospam):
 
 def filtrer(mails):
 
-	
+	mails.lower()
 	liste_mots=list(set(mails.split()))
 	reg=r"[0-9_@\\\/]+"
 
@@ -290,7 +284,7 @@ def filtrer(mails):
 	for mot in liste_mots:
 
 		if(re.match(reg,mot) is None and len(mot)<27 and len(mot)>3):
-			new_list.append(mot)
+			new_list.append(mot.lower())
 
 
 	return new_list
@@ -322,20 +316,23 @@ def filtrer_nltk(mails):
 def compte_mot_email(liste_mots, mails):
 
 	freq = []
-	len(mails)
-	lm= list(set(mails.split()))
+
+	
 	
 	for mot in liste_mots:
 		cpt=0
 
 		
-		for m in lm:
-
-			if(mot.lower()==m.lower()):
-				cpt+=1
+		for mail in mails:
+			mail=mail.lower()
 		
-		print(cpt)
-		freq.append(cpt)
+			if(mail.find(mot)!=-1):
+				cpt+=1
+
+		
+		
+		if(cpt>150):
+			freq.append(mot)
 
 	return freq
 
@@ -347,39 +344,31 @@ def distributionSem(spam,nospam, xi):
 	nb_xi_nospam=0.000001#Nombre de fois ou le mot xi apparait dans les spams
 	nb_xi_tot=0.000001#Nombre de fois ou le mot xi apparait dans les mails
 
-
+	
 	for mail in spam:
-		mail=list(set(mail.split()))
-		
-		for mot in mail:
-		
-			if (mot.lower() == xi.lower()):
-				nb_xi_spam += 1
-				nb_xi_tot += 1
+		mail=mail.lower()
+
+		if(mail.find(xi)!=-1):
+			nb_xi_spam += 1
+			nb_xi_tot += 1
 
 	for mail in nospam:
 
-		mail=list(set(mail.split()))
-		
-		for mot in mail:
-		
-			if (mot.lower() == xi.lower()):
-				nb_xi_nospam += 1
-				nb_xi_tot += 1
+		mail=mail.lower()
+
+		if(mail.find(xi)!=-1):
+			nb_xi_nospam += 1
+			nb_xi_tot += 1
 	
 	if(nb_xi_tot==0):
 		
 		return -1
 
-	px = float(nb_xi_tot) / (len(spam)+len(nospam)) #p(X=xi)
-	pyx_s = float(nb_xi_spam) / nb_xi_tot #p(Y=+1 | X=xi)
-	
-	pyx_ns = float(nb_xi_nospam) / nb_xi_tot #p(Y=-1 | X=xi)
 
-	pxy_s = pyx_s * px  #p(X=xi | Y=+1)
-	pxy_ns = pyx_ns * px  #p(X=xi | Y=-1)
+	pxy_s = float(nb_xi_spam) / nb_xi_tot #p(X=xi | Y=+1)
+	pxy_ns =  float(nb_xi_nospam) / nb_xi_tot #p(X=xi | Y=-1)
 
-	return -math.log(pyx_s), -math.log(pyx_ns)
+	return math.log(pxy_s), math.log(pxy_ns)
 	
 
 def predict_emailSem(email,modele):
@@ -392,7 +381,7 @@ def predict_emailSem(email,modele):
 		
 		if(email.find(mot[0])!=-1):
 			
-			print(mot[0])
+			
 			p_s+=mot[1]
 			p_ns+=mot[2]
 
@@ -419,8 +408,6 @@ def accuracySem(emails, modele):
 			cpt+=1
 	
 	return float(cpt)/len(labels)
-	
-
 	
 
 
