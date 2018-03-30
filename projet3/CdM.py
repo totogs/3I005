@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import pyAgrum as gum
+#import pyAgrum as gum
 
 import utils
 
@@ -87,6 +87,16 @@ class CdM(object):
 	def show_distribution(self, init_distrib):
 		
 		return self.distribution_to_vector(init_distrib)
-		
+
+
+	def get_transition_matrix(self):
+
+		matrix =[]
+
+		for (state, index) in self.stateToIndex.items():
+
+			matrix.append( self.distribution_to_vector(self.get_transition_distribution(state)))
+
+		return np.array(matrix)
 		
     
