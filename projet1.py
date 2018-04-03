@@ -220,7 +220,7 @@ print(proba_err(emails,modele_bine))
 """
 
 
-#Exercice 3: Classification à partir du contenu d'un email 
+#Exercice 3: Classification a partir du contenu d'un email 
 
 
 import nltk

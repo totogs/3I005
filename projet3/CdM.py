@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-#import pyAgrum as gum
+import pyAgrum as gum
+import pyAgrum.lib.notebook as gnb
+
+import matplotlib.pyplot as plt
+from matplotlib import colors
 
 import utils
 
@@ -85,8 +89,25 @@ class CdM(object):
 		
 	
 	def show_distribution(self, init_distrib):
+		vect = self.distribution_to_vector(init_distrib)
+
+		# c = np.zeros((100, 4))
+		# c[:, -1] = np.linspace(0, 1, 100)  # gradient de transparence
+		# for i in range(len(vect)):
+		# 	c[:,i] = vect[i]
+		# # ProbaMap est une matplotlib.colormap qu'on utilisera pour afficher des valeurs de probabilités (de 0 à 1).
+		# ProbaMap = colors.ListedColormap(c)
 		
-		return self.distribution_to_vector(init_distrib)
+		# plt.matshow(vect, cmap=ProbaMap)
+		# plt.grid(False)
+		# plt.show()
+		size = len(self.get_states())
+		fig, ax = plt.subplots()
+		fig.set_size_inches(4, 1)
+		ax.set_yticks([])
+		ax.set_xticklabels(self.get_states())
+		ax.set_xticks([i for i in range(size)])
+		ax.imshow(self.distribution_to_vector(init_distrib).reshape(1, size), cmap=utils.ProbaMap)
 
 
 	def get_transition_matrix(self):
@@ -98,5 +119,59 @@ class CdM(object):
 			matrix.append( self.distribution_to_vector(self.get_transition_distribution(state)))
 
 		return np.array(matrix)
+
+	def get_transition_graph(self):
+		#creer un graph oriente
+		g = gum.DiGraph()
+		#creer autant de noeuds qu'il y a d'etats
+		for i in range(len(self.state)):
+			# g.addNodeWithId(i+1)
+			g.addNode()
+
+		#recup la matrice de transitions
+		matrix = self.get_transition_matrix()
+		#ajouter les transitions au graph
+		for i in range(len(matrix)):
+			for j in range(len(matrix[i])):
+				c = matrix[i][j]
+				if(c > 0):
+					g.addArc(i, j)
 		
+		return g
+	
+	def show_transition_graph(self, g):
+		g.showDot(self.get_transition_graph().toDot())
+		# print (g)
     
+	def get_communication_classes(self):
+		# matrice = self.get_transition_matrix()
+		graph = self.get_transition_graph()
+		nodes = graph.ids()
+		candidats = []
+		connexes = []
+		classes = []
+		for i in nodes:
+			children = graph.children(i)
+			if i in children:
+				children.remove(i)
+				connexes.append(i)
+			
+			for j in children:
+				if j in graph.children(j):
+					connexes.append(i)
+					connexes.append(j)
+				elif i in graph.children(j):
+					candidats.append(j)
+
+		print (set(connexes))
+
+	# determine si un element appartient a une classe connexe
+	def access(self, matrice, i, connexes):
+		l = matrice[i]
+		inter = set(connexes).intersection(l)
+		if len(inter) > 0:
+			for j in connexes:
+				if matrice[j][i]>0:
+					return True
+		return False
+
