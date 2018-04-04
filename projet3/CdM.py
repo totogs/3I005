@@ -146,7 +146,10 @@ class CdM(object):
 	def get_communication_classes(self):
 		graph = self.get_transition_graph()
 		nodes = graph.ids()
-		used = set() # limite le nombre de tests
+
+		# limite le nombre de tests en passant les elements deja parcourus par profondeur
+		used = set()
+
 		classes = []
 		for i in nodes:
 			if not i in used:
@@ -159,15 +162,19 @@ class CdM(object):
 
 		return classes
 
+	# parcours d'une branche en profondeur
 	def profondeur(self, graph, children, visites, connexes, classes, used):
 		for j in children:
 			j_children = graph.children(j)
 			if j in visites:
 				if j in connexes:
+					# si j a ete visite et marque comme connexe:
+					#	ajouter ses parents aussi si ce n'est pas encore fait
 					for p in graph.parents(j).intersection(visites):
 						connexes.add(p)
 						used.add(p)
 				else:
+					# s'il a un de ses fils dans connexes alors il devrait le rejoindre
 					if len(set(j_children).intersection(connexes))>0:
 						connexes.add(j)
 						used.add(j)
@@ -175,19 +182,52 @@ class CdM(object):
 							connexes.add(p)
 							used.add(p)
 			else:
+				# si pas encore visite marquer comme tel et parcourir ses enfants en profondeur
 				visites.add(j)
-				#suppression doublons
-				# visites = list(set(visites))
 				self.profondeur(graph, j_children, visites, connexes, classes, used)
 	
 		#ajouter la nouvelle classe connexes si enrichissante
 		if len(classes) > 0:
 			c = classes.pop()#recup le dernier element ajoute
 			if len(c.intersection(connexes))>0:
+				# enrichir les classes existantes si possible
 				connexes = c.union(connexes)
 			else:
 				#sinon remettre c dedans
 				classes.append(c)
 		#dans tous les cas ajouter connexes
 		classes.append(connexes)
+	
+	# recup des sous-chaines de Markov
+	def get_absorbing_classes(self):
+		classes = []
+		graph = self.get_transition_graph()
+		nodes = graph.ids()
 
+		for i in nodes:
+			absorbants = set()
+			#pas de fils ou son unique fils? absorbant
+			children = graph.children(i)
+			nb_children = len(children)
+			if  nb_children== 0 or nb_children == 1 and i in children:
+				absorbants.add(i)
+				classes.append(absorbants)
+			
+			elif nb_children == 1:
+				absorb, absorbants = self.absorbes(i, children.pop(), graph, absorbants)
+				if absorb:
+					classes.append(absorbants)
+		return classes
+	# retourne vrai si l'unique fils de i a un unique fils ... et le tous boucle vers origin
+	def absorbes(self, origin, i, graph, absorbants):
+		children = graph.children(i)
+		#il n'a qu'un seul fils different de lui-meme?
+		if len(children) == 1 and i not in children:
+			#son seul fils est a l'origine de la fonction? absorption 
+			absorbants.add(children.pop())
+			if origin in children:
+				return True, absorbants
+			#non? c'est pa grave on continue
+			return self.absorbes(origin, children.pop(), graph, absorbants)
+		#plusieurs fils? pas absorbant
+		return False, set()

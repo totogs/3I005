@@ -9,9 +9,10 @@ from IPython.display import display, Image
 m = MouseInMaze ()
 # m.show_transition_matrix()
 # m.show_transition_graph(gnb)
-m.get_communication_classes()
-
+print("connexes: ", m.get_communication_classes())
+print("absorabants: ",m.get_absorbing_classes())
 # print (list(set([[1, 2], [1, 2], [2, 1]])))
 feu = FeuRouge()
-feu.get_communication_classes()
+print("connexes: ",feu.get_communication_classes())
+print("absorbants: ",feu.get_absorbing_classes())
 # feu.show_transition_matrix()
