@@ -144,34 +144,50 @@ class CdM(object):
 		# print (g)
     
 	def get_communication_classes(self):
-		# matrice = self.get_transition_matrix()
 		graph = self.get_transition_graph()
 		nodes = graph.ids()
-		candidats = []
-		connexes = []
+		used = set() # limite le nombre de tests
 		classes = []
 		for i in nodes:
-			children = graph.children(i)
-			if i in children:
-				children.remove(i)
-				connexes.append(i)
-			
-			for j in children:
-				if j in graph.children(j):
-					connexes.append(i)
-					connexes.append(j)
-				elif i in graph.children(j):
-					candidats.append(j)
+			if not i in used:
+				children = graph.children(i)
+				visites = set()
+				connexes = set()
+				visites.add(i)
+				connexes.add(i)
+				self.profondeur(graph, children, visites, connexes, classes, used)
 
-		print (set(connexes))
+		return classes
 
-	# determine si un element appartient a une classe connexe
-	def access(self, matrice, i, connexes):
-		l = matrice[i]
-		inter = set(connexes).intersection(l)
-		if len(inter) > 0:
-			for j in connexes:
-				if matrice[j][i]>0:
-					return True
-		return False
+	def profondeur(self, graph, children, visites, connexes, classes, used):
+		for j in children:
+			j_children = graph.children(j)
+			if j in visites:
+				if j in connexes:
+					for p in graph.parents(j).intersection(visites):
+						connexes.add(p)
+						used.add(p)
+				else:
+					if len(set(j_children).intersection(connexes))>0:
+						connexes.add(j)
+						used.add(j)
+						for p in graph.parents(j):
+							connexes.add(p)
+							used.add(p)
+			else:
+				visites.add(j)
+				#suppression doublons
+				# visites = list(set(visites))
+				self.profondeur(graph, j_children, visites, connexes, classes, used)
+	
+		#ajouter la nouvelle classe connexes si enrichissante
+		if len(classes) > 0:
+			c = classes.pop()#recup le dernier element ajoute
+			if len(c.intersection(connexes))>0:
+				connexes = c.union(connexes)
+			else:
+				#sinon remettre c dedans
+				classes.append(c)
+		#dans tous les cas ajouter connexes
+		classes.append(connexes)
 
