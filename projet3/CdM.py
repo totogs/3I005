@@ -242,6 +242,8 @@ class CdM(object):
 					return 1
 				periods.add(pgcd)
 			return utils.pgcd_list(s_periods)
+			
+			
 
 	
 		
