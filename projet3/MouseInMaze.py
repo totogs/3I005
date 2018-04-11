@@ -5,18 +5,17 @@ class MouseInMaze(CdM):
 
 
 	def __init__(self):
-		self.states=[1,2,3,4,5,6]
 		self.avancer=0.25
 		self.reculer=0.25
 		self.rester=0.5
 		super().__init__()
 
 	def get_states(self):
-		return self.states
+		return [1,2,3,4,5,6]
 	
 
 	def get_transition_distribution(self,state):
-		if(state==self.states[0]):
+		if(state==1):
 			return{1: 0.5, 2: 0.5}
 
 		if(state==2):

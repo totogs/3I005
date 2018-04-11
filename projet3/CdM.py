@@ -25,8 +25,8 @@ class CdM(object):
 		self.state=self.get_states()
 		self.stateToIndex=dict()
 
-		for i in range(len(self.state)):
-			self.stateToIndex[self.state[i]]=i
+		for i in range(len(self.get_states())):
+			self.stateToIndex[self.get_states()[i]]=i
 
 
 	def get_states(self):
@@ -115,8 +115,9 @@ class CdM(object):
 		matrix =[]
 
 		for (state, index) in self.stateToIndex.items():
-
-			matrix.append( self.distribution_to_vector(self.get_transition_distribution(state)))
+			vect = self.distribution_to_vector(self.get_transition_distribution(state))
+			# print(state, index, vect)
+			matrix.insert(index, vect)
 
 		return np.array(matrix)
 
@@ -124,7 +125,7 @@ class CdM(object):
 		#creer un graph oriente
 		g = gum.DiGraph()
 		#creer autant de noeuds qu'il y a d'etats
-		for i in range(len(self.state)):
+		for i in range(len(self.get_states())):
 			# g.addNodeWithId(i+1)
 			g.addNode()
 
@@ -140,8 +141,22 @@ class CdM(object):
 		return g
 	
 	def show_transition_graph(self, g):
-		g.showDot(self.get_transition_graph().toDot())
-		# print (g)
+		digraph = "\n digraph{"
+		states_index = self.stateToIndex
+		#ajout des noeuds
+		for s in self.get_states():
+			s_index = str(states_index[s])
+			digraph += "\n\t"+s_index+" [label=\"["+ s_index +"] "+str(s)+"\"];"
+		digraph += "\n"
+		#ajout des arcs
+		for s in self.get_states():
+			children = self.get_transition_distribution(s)
+			for key in children:
+				digraph += "\n\t"+str(states_index[s])+"->"+str(states_index[key])+" [label="+ str(children[key]) +"];"
+		digraph += "\n}\n\t"
+
+		# print (digraph)
+		g.showDot(digraph)
     
 	def get_communication_classes(self):
 		graph = self.get_transition_graph()
@@ -158,46 +173,10 @@ class CdM(object):
 				connexes = set()
 				visites.add(i)
 				connexes.add(i)
-				self.profondeur(graph, children, visites, connexes, classes, used)
+				utils.profondeur(graph, children, visites, connexes, classes, used)
 
 		return classes
 
-	# parcours d'une branche en profondeur
-	def profondeur(self, graph, children, visites, connexes, classes, used):
-		for j in children:
-			j_children = graph.children(j)
-			if j in visites:
-				if j in connexes:
-					# si j a ete visite et marque comme connexe:
-					#	ajouter ses parents aussi si ce n'est pas encore fait
-					for p in graph.parents(j).intersection(visites):
-						connexes.add(p)
-						used.add(p)
-				else:
-					# s'il a un de ses fils dans connexes alors il devrait le rejoindre
-					if len(set(j_children).intersection(connexes))>0:
-						connexes.add(j)
-						used.add(j)
-						for p in graph.parents(j):
-							connexes.add(p)
-							used.add(p)
-			else:
-				# si pas encore visite marquer comme tel et parcourir ses enfants en profondeur
-				visites.add(j)
-				self.profondeur(graph, j_children, visites, connexes, classes, used)
-	
-		#ajouter la nouvelle classe connexes si enrichissante
-		if len(classes) > 0:
-			c = classes.pop()#recup le dernier element ajoute
-			if len(c.intersection(connexes))>0:
-				# enrichir les classes existantes si possible
-				connexes = c.union(connexes)
-			else:
-				#sinon remettre c dedans
-				classes.append(c)
-		#dans tous les cas ajouter connexes
-		classes.append(connexes)
-	
 	# recup des sous-chaines de Markov
 	def get_absorbing_classes(self):
 		graph = self.get_transition_graph()
@@ -213,32 +192,56 @@ class CdM(object):
 		return absorbants
 	
 	def is_irreducible(self):
+		# les etats communiquent entre eux -> return True	
 		states = set(self.stateToIndex.values())
 		graphe = self.get_transition_graph()
-		print (states)
+		# print (states)
 		for i in states:
 		
-			visites=self.profondeur_irreducible(graphe, i, set([i]))
-			print(i, " ", visites)
+			visites=utils.profondeur_irreducible(graphe, i, set([i]))
+			# print(i, " ", visites)
 			if len(states.difference(visites))>0:
-				
 				return False
 				
 		return True	
-		
-	#fonction auxiliaire de is_irreducible
-	def profondeur_irreducible(self, graph, i, visites):
-		children = graph.children(i)
-		for c in children:
-			if c in visites:
-				continue
-			visites.add(c)
-			visites.union(self.profondeur_irreducible(graph, c, visites))
-			
-		return visites
 	
 	def is_aperiodic(self):
-		if self.is_irreducible():
+		if not self.is_irreducible():
 			return True
-		
+		else:
+			periods = set()
+			states = set(self.stateToIndex.values())
+			graphe = self.get_transition_graph()
+			for s in states:
+				children = graphe.children(s)
+				s_periods = utils.period_elem(graphe, s, children, set(), set(), 1)
+				# print(s,"", s_periods)
+				pgcd = utils.pgcd_list(s_periods)
+				if pgcd == 1:
+					#aperiodique
+					return True
+				periods.add(pgcd)
+			
+			if utils.pgcd_list(s_periods) == 1:
+				return True
+			return False
+
+	def get_periodicity(self):
+		if not self.is_irreducible():
+			return 1
+		else:
+			periods = set()
+			states = set(self.stateToIndex.values())
+			graphe = self.get_transition_graph()
+			for s in states:
+				children = graphe.children(s)
+				s_periods = utils.period_elem(graphe, s, children, set(), set(), 1)
+				pgcd = utils.pgcd_list(s_periods)
+				if pgcd == 1:
+					#aperiodique
+					return 1
+				periods.add(pgcd)
+			return utils.pgcd_list(s_periods)
+
 	
+		
