@@ -200,34 +200,45 @@ class CdM(object):
 	
 	# recup des sous-chaines de Markov
 	def get_absorbing_classes(self):
-		classes = []
 		graph = self.get_transition_graph()
-		nodes = graph.ids()
-
-		for i in nodes:
-			absorbants = set()
-			#pas de fils ou son unique fils? absorbant
-			children = graph.children(i)
-			nb_children = len(children)
-			if  nb_children== 0 or nb_children == 1 and i in children:
-				absorbants.add(i)
-				classes.append(absorbants)
-			
-			elif nb_children == 1:
-				absorb, absorbants = self.absorbes(i, children.pop(), graph, absorbants)
-				if absorb:
-					classes.append(absorbants)
-		return classes
-	# retourne vrai si l'unique fils de i a un unique fils ... et le tous boucle vers origin
-	def absorbes(self, origin, i, graph, absorbants):
+		classes_connexes = self.get_communication_classes()
+		absorbants = []
+		for c in classes_connexes:
+			children = set()
+			for i in c:
+				children = children.union(graph.children(i))
+			diff = children.difference(c)
+			if len(diff) == 0:
+				absorbants.append(c)
+		return absorbants
+	
+	def is_irreducible(self):
+		states = set(self.stateToIndex.values())
+		graphe = self.get_transition_graph()
+		print (states)
+		for i in states:
+		
+			visites=self.profondeur_irreducible(graphe, i, set([i]))
+			print(i, " ", visites)
+			if len(states.difference(visites))>0:
+				
+				return False
+				
+		return True	
+		
+	#fonction auxiliaire de is_irreducible
+	def profondeur_irreducible(self, graph, i, visites):
 		children = graph.children(i)
-		#il n'a qu'un seul fils different de lui-meme?
-		if len(children) == 1 and i not in children:
-			#son seul fils est a l'origine de la fonction? absorption 
-			absorbants.add(children.pop())
-			if origin in children:
-				return True, absorbants
-			#non? c'est pa grave on continue
-			return self.absorbes(origin, children.pop(), graph, absorbants)
-		#plusieurs fils? pas absorbant
-		return False, set()
+		for c in children:
+			if c in visites:
+				continue
+			visites.add(c)
+			visites.union(self.profondeur_irreducible(graph, c, visites))
+			
+		return visites
+	
+	def is_aperiodic(self):
+		if self.is_irreducible():
+			return True
+		
+	
